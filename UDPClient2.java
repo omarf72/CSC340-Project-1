@@ -1,8 +1,8 @@
-package networking;
-
-import java.io.IOException;
+import java.io.*;
 import java.net.*;
 import java.util.Scanner;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 /**
  * 
  * @author cjaiswal
@@ -10,82 +10,92 @@ import java.util.Scanner;
  *  
  * 
  */
-public class UDPClient2 
-{
+public class UDPClient2 {
     private DatagramSocket socket;
     private Scanner in = new Scanner(System.in);
-    public UDPClient2() 
-    {
-    	//create a client socket with random port number chose by DatagramSocket
-    	try 
-    	{
-			socket = new DatagramSocket();
-		} 
-    	catch (SocketException e) 
-    	{
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+    private ExecutorService executor;
+
+    public UDPClient2() {
+        try {
+            socket = new DatagramSocket();
+            executor = Executors.newFixedThreadPool(4); // Create thread pool with 4 threads
+        } catch (SocketException e) {
+            e.printStackTrace();
+        }
     }
 
-    public void createAndListenSocket() 
-    {
-        try 
-        {
-            char ch='y';
-            
-            //create socket for the destination/server
-            InetAddress IPAddress = InetAddress.getByName("localhost");
+    private byte[] serialize(Object obj) throws IOException {
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        ObjectOutputStream oos = new ObjectOutputStream(bos);
+        oos.writeObject(obj);
+        oos.flush();
+        return bos.toByteArray();
+    }
+
+    private Object deserialize(byte[] data) throws IOException, ClassNotFoundException {
+        ByteArrayInputStream bis = new ByteArrayInputStream(data);
+        ObjectInputStream ois = new ObjectInputStream(bis);
+        return ois.readObject();
+    }
+
+    public void createAndListenSocket() {
+        try {
+            InetAddress IPAddress = Inet4Address.getByName("localhost");
             int serverPort = 9876;
             byte[] incomingData = new byte[1024];
-            String sentence = "";
-        	byte data[] = new byte[1024];
-
-            do
-            {
-            	//construct the client packet & send it
-            	System.out.println("Enter your message:");
-            	sentence = in.nextLine();
-            	data = sentence.getBytes();
-                DatagramPacket sendPacket = new DatagramPacket(data, data.length, IPAddress, serverPort);
-                socket.send(sendPacket);
-               
-                //create packet and recieve the response from the server
-                DatagramPacket incomingPacket = new DatagramPacket(incomingData, incomingData.length);
-                socket.receive(incomingPacket);
-                String response = new String(incomingPacket.getData());
-                System.out.println("Response from server:" + response);
-                System.out.println("Server Details:PORT " + incomingPacket.getPort()
-                + ", IP Address: " + incomingPacket.getAddress());
-                sendPacket = null; incomingPacket = null;
-                System.out.println("Chat more? Y/N...");
-                ch = in.nextLine().charAt(0);
-            }while(ch=='y' || ch=='Y');
             
-            //send THEEND message to server to terminate
-            sentence = "THEEND";
-            data = sentence.getBytes();
-            DatagramPacket sendPacket = new DatagramPacket(data, data.length, IPAddress, 9876);
-            socket.send(sendPacket);
-            socket.close();
-        }
-        catch (UnknownHostException e) 
-        {
-            e.printStackTrace();
-        } 
-        catch (SocketException e) 
-        {
-            e.printStackTrace();
-        } 
-        catch (IOException e) 
-        {
+            Runnable senderTask = () -> {
+                try {
+                    char ch = 'y';
+                    do {
+                        System.out.println("Enter your message:");
+                        String sentence = in.nextLine();
+                        byte[] data = serialize(sentence);
+                        DatagramPacket sendPacket = new DatagramPacket(data, data.length, IPAddress, serverPort);
+                        socket.send(sendPacket);
+                        System.out.println("Message sent.");
+                        
+                        if (sentence.equals("THEEND")) {
+                            break;
+                        }
+
+                        System.out.println("Chat more? Y/N...");
+                        ch = in.nextLine().charAt(0);
+                    } while (ch == 'y' || ch == 'Y');
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            };
+
+            Runnable receiverTask = () -> {
+                try {
+                    while (true) {
+                        DatagramPacket incomingPacket = new DatagramPacket(incomingData, incomingData.length);
+                        socket.receive(incomingPacket);
+                        String response = (String) deserialize(incomingPacket.getData());
+                        System.out.println("Response from server: " + response);
+                        
+                        if (response.equals("THEEND")) {
+                            break;
+                        }
+                    }
+                } catch (IOException | ClassNotFoundException e) {
+                    e.printStackTrace();
+                }
+            };
+
+            executor.execute(senderTask);
+            executor.execute(receiverTask);
+
+            executor.shutdown();
+        } catch (UnknownHostException e) {
             e.printStackTrace();
         }
     }
 
-    public static void main(String[] args) 
-    {
+    public static void main(String[] args) {
         UDPClient2 client = new UDPClient2();
         client.createAndListenSocket();
     }
 }
+
