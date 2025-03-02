@@ -12,11 +12,14 @@ public class ConfigLoader {
     public class NodeInfo {
         String ip;
         int port;
+        boolean status;
+
 
         
-        public NodeInfo(String ip, int port) {
+        public NodeInfo(String ip, int port/*boolean status*/) {
             this.ip = ip;
             this.port = port;
+            //this.status=status;
         }
     }
 
