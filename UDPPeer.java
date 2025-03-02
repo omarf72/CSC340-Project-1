@@ -1,93 +1,106 @@
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
-import java.sql.Time;
+import java.security.SecureRandom;
 import java.util.Random;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-public class UDPPeer extends Thread{
+public class UDPPeer{
     private DatagramSocket socket = null;
-
-    public UDPPeer() 
-    {
-    	try 
-    	{
+    private ExecutorService executor;
+    public UDPPeer(){
+    	try{
     		//create the socket assuming the server is listening on port 9876
 			socket = new DatagramSocket(9876);
-		} 
-    	catch (SocketException e) 
-    	{
+            executor = Executors.newFixedThreadPool(3);
+		} catch (SocketException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 
     }
-    public void createAndListenSocket() 
-    {
-        try 
-        {
-        	//incoming data buffer
-            byte[] incomingData = new byte[1024];
 
-            while (true) 
-            {
-            	//create incoming packet
-                DatagramPacket incomingPacket = new DatagramPacket(incomingData, incomingData.length);
-                System.out.println("Waiting...");
-                
-                //wait for the packet to arrive and store it in incoming packet
-                socket.receive(incomingPacket);
-                
-                //retrieve the data
-                String message = new String(incomingPacket.getData());
-                
-                //terminate if it is "THEEND" message from the client
-                if(message.equals("THEEND"))
-                {
-                	socket.close();
-                	break;
-                }
-                System.out.println("Received message from client: " + message);
-                System.out.println("Client Details:PORT " + incomingPacket.getPort()
-                + ", IP Address:" + incomingPacket.getAddress());
-                
-                //retrieve client socket info and create response packet
-                InetAddress IPAddress = incomingPacket.getAddress();
-                int port = incomingPacket.getPort();
-                String reply = "Thank you for the message";
-                byte[] data = reply.getBytes();
-                DatagramPacket replyPacket =
-                        new DatagramPacket(data, data.length, IPAddress, port);
-                socket.send(replyPacket);
-            }
-        } 
-        catch (SocketException e) 
-        {
-            e.printStackTrace();
-        } 
-        catch (IOException i) 
-        {
-            i.printStackTrace();
-        } 
+    private byte[] serialize(Object obj) throws IOException {
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        ObjectOutputStream oos = new ObjectOutputStream(bos);
+        oos.writeObject(obj);
+        oos.flush();
+        return bos.toByteArray();
     }
-    public void run(){
-        Random rand = new Random();
-        int seconds = rand.nextInt(5,10);
-        while(true){
+
+    private Object deserialize(byte[] data) throws IOException, ClassNotFoundException {
+        ByteArrayInputStream bis = new ByteArrayInputStream(data);
+        ObjectInputStream ois = new ObjectInputStream(bis);
+        return ois.readObject();
+    }
+
+    public void createAndListenSocket() {
+        Runnable listenerTask = () -> {
             try {
-                TimeUnit.SECONDS.sleep(seconds);
-            } catch (InterruptedException e) {
+                byte[] incomingData = new byte[1024];
+                while (true) {
+                    DatagramPacket incomingPacket = new DatagramPacket(incomingData, incomingData.length);
+                    System.out.println("Waiting...");
+                    socket.receive(incomingPacket);
+
+                    String message = (String) deserialize(incomingPacket.getData());
+                    if (message.equals("THEEND")) {
+                        socket.close();
+                        break;
+                    }
+                    System.out.println("Received message from client: " + message);
+                    System.out.println("Client Details: PORT " + incomingPacket.getPort()
+                            + ", IP Address: " + incomingPacket.getAddress());
+
+                    InetAddress IPAddress = Inet4Address.getByName(incomingPacket.getAddress().getHostAddress());
+                    int port = incomingPacket.getPort();
+                    String reply = "Thank you for the message";
+                    byte[] data = serialize(reply);
+                    DatagramPacket replyPacket = new DatagramPacket(data, data.length, IPAddress, port);
+                    socket.send(replyPacket);
+                }
+            } catch (IOException | ClassNotFoundException e) {
                 e.printStackTrace();
             }
-            ping();
-            seconds = rand.nextInt(5,31);
-        }
+        };
+
+        Runnable sendTask = () -> {
+            SecureRandom rand = new SecureRandom();
+            int seconds = rand.nextInt(1,31);
+            while(true){
+                try {
+                    TimeUnit.SECONDS.sleep(seconds);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                ping(); //change to communicate to each peer
+                seconds = rand.nextInt(1,31);
+            }
+        };
+
+        Runnable heartbeatTask = () -> {
+            //timer for each other peer
+            //update hashmap
+            //print status of each peer
+        };
+        executor.execute(heartbeatTask);
+        executor.execute(listenerTask);
+        executor.execute(sendTask);
+        executor.shutdown();
         
     }
+
     public void ping(){
     try 
         {
@@ -122,9 +135,6 @@ public class UDPPeer extends Thread{
     public static void main(String[] args) throws InterruptedException 
     {
         UDPPeer server = new UDPPeer();
-        server.start();
-
         server.createAndListenSocket();
-        //server.ping();
     }
 }
