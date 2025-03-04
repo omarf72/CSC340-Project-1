@@ -7,11 +7,9 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.Inet4Address;
 import java.net.InetAddress;
-import java.net.Socket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.security.SecureRandom;
-import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -19,6 +17,7 @@ import java.util.concurrent.TimeUnit;
 public class UDPPeer{
     private DatagramSocket socket = null;
     private ExecutorService executor;
+    private ConfigLoader configLoader = new ConfigLoader();
     public UDPPeer(){
     	try{
     		//create the socket assuming the server is listening on port 9876
@@ -54,14 +53,17 @@ public class UDPPeer{
                     System.out.println("Waiting...");
                     socket.receive(incomingPacket);
 
-                    String message = (String) deserialize(incomingPacket.getData());
-                    if (message.equals("THEEND")) {
+                    Packet packet = (Packet) deserialize(incomingPacket.getData());
+                    /*if (message.equals("THEEND")) {
                         socket.close();
                         break;
-                    }
-                    System.out.println("Received message from client: " + message);
+                    }*/
+                    System.out.println("Received message from client: " + packet);
                     System.out.println("Client Details: PORT " + incomingPacket.getPort()
-                            + ", IP Address: " + incomingPacket.getAddress());
+                            + ", IP Address: " + incomingPacket.getAddress()
+                            + ", File Listing: " + packet.getData());
+                    configLoader.setNodeStatus(packet.getNodeId(), "Online");
+
 
                     InetAddress IPAddress = Inet4Address.getByName(incomingPacket.getAddress().getHostAddress());
                     int port = incomingPacket.getPort();
@@ -91,8 +93,22 @@ public class UDPPeer{
 
         Runnable heartbeatTask = () -> {
             //timer for each other peer
-            //update hashmap
-            //print status of each peer
+            try {
+                while (true) {
+                    
+                    //set all nodes in hashmap to false
+                    for(int i=1; i <= configLoader.getNodes().size(); i++){
+                        configLoader.setNodeStatus(i, "Offline");
+                    }
+                    Thread.sleep(30000);
+                    for(int i=1; i <= configLoader.getNodes().size(); i++){
+                        System.out.println("Server " + i + ": " + configLoader.getNodes().get(i).status);
+                    }
+                }
+            } catch (InterruptedException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
         };
         executor.execute(heartbeatTask);
         executor.execute(listenerTask);
@@ -104,20 +120,20 @@ public class UDPPeer{
     public void ping(){
     try 
         {
-            DatagramSocket Socket;
-            Socket = new DatagramSocket();
-            InetAddress IPAddress = InetAddress.getByName("localhost");
-            byte[] incomingData = new byte[1024];
-            String sentence = "Oh wow";
-            byte[] data = sentence.getBytes();
-            DatagramPacket sendPacket = new DatagramPacket(data, data.length, IPAddress, 9876);
-            Socket.send(sendPacket);
-            System.out.println("Message sent from client");
-            DatagramPacket incomingPacket = new DatagramPacket(incomingData, incomingData.length);
-            Socket.receive(incomingPacket);
-            String response = new String(incomingPacket.getData());
-            System.out.println("Response from server:" + response);
-            Socket.close();
+            for(int i=1; i <= configLoader.getNodes().size(); i++){
+                Packet packet;
+
+                byte version = 0;
+                packet = new Packet(version, i, 0, configLoader.getNodes().get(i).files.toString());
+                byte[] data = serialize(packet);
+                DatagramSocket Socket = new DatagramSocket();
+                InetAddress IPAddress = InetAddress.getByName(configLoader.getNodes().get(i).ip);
+                DatagramPacket sendPacket = new DatagramPacket(data, data.length, IPAddress, configLoader.getNodes().get(i).port);
+                Socket.send(sendPacket);
+                System.out.println("Message sent to peer " + i);
+                Socket.close();
+            }
+            
         }
         catch (UnknownHostException e) 
         {
