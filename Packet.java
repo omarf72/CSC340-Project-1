@@ -1,4 +1,6 @@
-public class Packet{
+import java.io.Serializable;
+
+public class Packet implements Serializable{
 
     private byte version;
 
