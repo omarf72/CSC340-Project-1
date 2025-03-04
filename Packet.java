@@ -6,11 +6,11 @@ public class Packet{
 
     private int dataLength;
 
-    private byte data;
+    private String data;
 
 
 
-    public Packet(byte version,int nodeId,int dataLength,byte data){
+    public Packet(byte version,int nodeId,int dataLength,String data){
 
         this.version=version;
         this.nodeId=nodeId;
@@ -38,12 +38,33 @@ public class Packet{
 
 
 
-    public byte getData() {
+    public String getData() {
         return data;
+    }
+
+
+    public void setVersion(byte version) {
+        this.version = version;
+    }
+
+
+    public void setNodeId(int nodeId) {
+        this.nodeId = nodeId;
+    }
+
+
+    public void setDataLength(int dataLength) {
+        this.dataLength = dataLength;
+    }
+
+
+    public void setData(String data) {
+        this.data = data;
     }
 
 
 
     
+
 
 }
