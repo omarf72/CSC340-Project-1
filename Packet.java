@@ -4,17 +4,17 @@ public class Packet{
 
     private int nodeId;
 
-    private int dataLength;
+    private boolean on_off;
 
     private String data;
 
 
 
-    public Packet(byte version,int nodeId,int dataLength,String data){
+    public Packet(byte version,int nodeId,boolean on_off,String data){
 
         this.version=version;
         this.nodeId=nodeId;
-        this.dataLength=dataLength;
+        this.on_off = on_off;
         this.data=data;
 
     }
@@ -32,8 +32,8 @@ public class Packet{
 
 
 
-    public int getDataLength() {
-        return dataLength;
+    public boolean getOn_off() {
+        return on_off;
     }
 
 
@@ -53,8 +53,8 @@ public class Packet{
     }
 
 
-    public void setDataLength(int dataLength) {
-        this.dataLength = dataLength;
+    public void setOn_off(boolean on_off) {
+        this.on_off = on_off;
     }
 
 

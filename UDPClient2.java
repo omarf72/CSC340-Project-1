@@ -1,6 +1,5 @@
 //package networking;
 
-import java.io.IOException;
 import java.io.*;
 import java.net.*;
 import java.util.Scanner;
@@ -45,26 +44,28 @@ public class UDPClient2 {
         try {
             InetAddress IPAddress = Inet4Address.getByName("localhost");
             int serverPort = 9876;
-            byte[] incomingData = new byte[1024];
+            ConfigLoader configLoader = new ConfigLoader();
+            int nodeId = 1; // Change as needed or dynamically determine
+            ConfigLoader.NodeInfo nodeInfo = configLoader.getNodes().get(nodeId);
             
+            if (nodeInfo == null) {
+                System.err.println("Node information not found.");
+                return;
+            }
+            
+            String fileList = String.join(",", nodeInfo.files);
+            boolean isOnline = "Online".equalsIgnoreCase(nodeInfo.status);
+            
+            Packet packet = new Packet((byte) 1, nodeId, isOnline, fileList);
+            byte[] data = serialize(packet);
+            
+            byte[] incomingData = new byte[1024];
+
             Runnable senderTask = () -> {
                 try {
-                    char ch = 'y';
-                    do {
-                        System.out.println("Enter your message:");
-                        String sentence = in.nextLine();
-                        byte[] data = serialize(sentence);
-                        DatagramPacket sendPacket = new DatagramPacket(data, data.length, IPAddress, serverPort);
-                        socket.send(sendPacket);
-                        System.out.println("Message sent.");
-                        
-                        if (sentence.equals("THEEND")) {
-                            break;
-                        }
-
-                        System.out.println("Chat more? Y/N...");
-                        ch = in.nextLine().charAt(0);
-                    } while (ch == 'y' || ch == 'Y');
+                    DatagramPacket sendPacket = new DatagramPacket(data, data.length, IPAddress, serverPort);
+                socket.send(sendPacket);
+                System.out.println("Node information sent.");
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
