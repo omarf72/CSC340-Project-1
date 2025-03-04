@@ -7,11 +7,9 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.Inet4Address;
 import java.net.InetAddress;
-import java.net.Socket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.security.SecureRandom;
-import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -19,6 +17,7 @@ import java.util.concurrent.TimeUnit;
 public class UDPPeer{
     private DatagramSocket socket = null;
     private ExecutorService executor;
+    private ConfigLoader configLoader = new ConfigLoader();
     public UDPPeer(){
     	try{
     		//create the socket assuming the server is listening on port 9876
@@ -91,6 +90,16 @@ public class UDPPeer{
 
         Runnable heartbeatTask = () -> {
             //timer for each other peer
+            try {
+                while (true) {
+                    Thread.sleep(30000);
+                    //set all nodes in hashmap to false
+                }
+            } catch (InterruptedException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+            
             //update hashmap
             //print status of each peer
         };
