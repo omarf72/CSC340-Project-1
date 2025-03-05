@@ -16,7 +16,7 @@ public class Packet implements Serializable{
 
         this.version=version;
         this.nodeId=nodeId;
-        this.dataLength=dataLength;
+        this.dataLength = dataLength;
         this.data=data;
 
     }
