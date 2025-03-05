@@ -10,6 +10,7 @@ import java.net.InetAddress;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.security.SecureRandom;
+import java.util.Scanner;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -18,6 +19,7 @@ public class UDPPeer{
     private DatagramSocket socket = null;
     private ExecutorService executor;
     private ConfigLoader configLoader = new ConfigLoader();
+    private int nodeId;
     public UDPPeer(){
     	try{
     		//create the socket assuming the server is listening on port 9876
@@ -27,7 +29,9 @@ public class UDPPeer{
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-
+        System.out.println("Input this node's ID: ");
+        Scanner scan = new Scanner(System.in);
+        nodeId = scan.nextInt();
     }
 
     private byte[] serialize(Object obj) throws IOException {
@@ -124,7 +128,7 @@ public class UDPPeer{
                 Packet packet;
 
                 byte version = 0;
-                packet = new Packet(version, i, 0, configLoader.getNodes().get(i).files.toString());
+                packet = new Packet(version, this.nodeId, 0, configLoader.getNodes().get(nodeId).files.toString());
                 byte[] data = serialize(packet);
                 DatagramSocket Socket = new DatagramSocket();
                 InetAddress IPAddress = InetAddress.getByName(configLoader.getNodes().get(i).ip);
