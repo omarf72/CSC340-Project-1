@@ -6,17 +6,17 @@ public class Packet implements Serializable{
 
     private int nodeId;
 
-    private boolean on_off;
+    private int dataLength;
 
     private String data;
 
 
 
-    public Packet(byte version,int nodeId,boolean on_off,String data){
+    public Packet(byte version,int nodeId,int dataLength,String data){
 
         this.version=version;
         this.nodeId=nodeId;
-        this.on_off = on_off;
+        this.dataLength = dataLength;
         this.data=data;
 
     }
@@ -34,8 +34,8 @@ public class Packet implements Serializable{
 
 
 
-    public boolean getOn_off() {
-        return on_off;
+    public int getDataLength() {
+        return dataLength;
     }
 
 
@@ -55,8 +55,8 @@ public class Packet implements Serializable{
     }
 
 
-    public void setOn_off(boolean on_off) {
-        this.on_off = on_off;
+    public void setDataLength(int dataLength) {
+        this.dataLength = dataLength;
     }
 
 
