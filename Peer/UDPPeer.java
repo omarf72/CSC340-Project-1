@@ -1,3 +1,6 @@
+
+// Author: Jacob Levin 3/6/2025
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
