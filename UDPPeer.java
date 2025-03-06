@@ -10,6 +10,7 @@ import java.net.InetAddress;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.security.SecureRandom;
+import java.util.Arrays;
 import java.util.Scanner;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -32,6 +33,7 @@ public class UDPPeer{
         System.out.println("Input this node's ID: ");
         Scanner scan = new Scanner(System.in);
         nodeId = scan.nextInt();
+        scan.close();
     }
 
     private byte[] serialize(Object obj) throws IOException {
@@ -58,23 +60,12 @@ public class UDPPeer{
                     socket.receive(incomingPacket);
 
                     Packet packet = (Packet) deserialize(incomingPacket.getData());
-                    /*if (message.equals("THEEND")) {
-                        socket.close();
-                        break;
-                    }*/
                     System.out.println("Received message from client: " + packet);
                     System.out.println("Client Details: PORT " + incomingPacket.getPort()
                             + ", IP Address: " + incomingPacket.getAddress()
                             + ", File Listing: " + packet.getData());
                     configLoader.setNodeStatus(packet.getNodeId(), "Online");
-
-
-                    InetAddress IPAddress = Inet4Address.getByName(incomingPacket.getAddress().getHostAddress());
-                    int port = incomingPacket.getPort();
-                    String reply = "Thank you for the message";
-                    byte[] data = serialize(reply);
-                    DatagramPacket replyPacket = new DatagramPacket(data, data.length, IPAddress, port);
-                    socket.send(replyPacket);
+                    configLoader.setNodeFiles(packet.getNodeId(), Arrays.asList(packet.getData().split(",")));
                 }
             } catch (IOException | ClassNotFoundException e) {
                 e.printStackTrace();
