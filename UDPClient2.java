@@ -9,24 +9,33 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.security.SecureRandom;
 
-public class UDPClient2 {
-    private DatagramSocket socket;
-    private ExecutorService executor;
-    private int nodeId;
-    private InetAddress serverAddress;
-    private int serverPort = 9876; // Keeping this constant as in the original code
 
+public class UDPClient2 {
+    private DatagramSocket socket; // UDP socket for communication
+    private ExecutorService executor; // Thread pool for handling sending/receiving
+    private int nodeId; // Unique identifier for this node
+    private InetAddress serverAddress; // Server address
+    private int serverPort = 9876; // Port used for server communication
+
+    /**
+     * Constructor to initialize the UDP client.
+     * @param nodeId The ID of this node.
+     * @param nodeInfo Configuration details for this node.
+     */
     public UDPClient2(int nodeId, ConfigLoader.NodeInfo nodeInfo) {
         try {
             this.nodeId = nodeId;
-            socket = new DatagramSocket(nodeInfo.port); // Bind to the node's port dynamically
-            executor = Executors.newFixedThreadPool(2);
-            serverAddress = InetAddress.getByName("192.168.56.1"); // Set server IP
+            socket = new DatagramSocket(nodeInfo.port); // Bind to the specified port
+            executor = Executors.newFixedThreadPool(2); // Use two threads for handling tasks
+            serverAddress = InetAddress.getByName("192.168.56.1"); // Server IP address
         } catch (SocketException | UnknownHostException e) {
             e.printStackTrace();
         }
     }
 
+    /**
+     * Converts an object into a byte array for sending over UDP.
+     */
     private byte[] serialize(Object obj) throws IOException {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         ObjectOutputStream oos = new ObjectOutputStream(bos);
@@ -35,18 +44,25 @@ public class UDPClient2 {
         return bos.toByteArray();
     }
 
+    /**
+     * Converts a byte array back into an object.
+     */
     private Object deserialize(byte[] data) throws IOException, ClassNotFoundException {
         ByteArrayInputStream bis = new ByteArrayInputStream(data);
         ObjectInputStream ois = new ObjectInputStream(bis);
         return ois.readObject();
     }
 
+    /**
+     * Starts the client, handling both sending and receiving of messages.
+     */
     public void createAndListenSocket(ConfigLoader.NodeInfo nodeInfo) {
         if (nodeInfo == null) {
             System.err.println("Node information not found.");
             return;
         }
 
+        // Task for sending packets to the server
         Runnable senderTask = () -> {
             SecureRandom random = new SecureRandom();
             byte version = 1;
@@ -54,8 +70,7 @@ public class UDPClient2 {
             try {
                 while (true) {
                     String fileList = String.join(",", nodeInfo.files);
-                    int dataLength = fileList.length();
-                    Packet packet = new Packet(version, nodeId, dataLength, fileList);
+                    Packet packet = new Packet(version, nodeId, fileList.length(), fileList);
 
                     try {
                         byte[] data = serialize(packet);
@@ -66,13 +81,13 @@ public class UDPClient2 {
                         e.printStackTrace();
                     }
 
+                    // Wait between 1 and 30 seconds before sending again
                     int delay = 1 + random.nextInt(30);
                     System.out.println("Next send in " + delay + " seconds.");
 
                     try {
                         Thread.sleep(delay * 1000);
                     } catch (InterruptedException e) {
-                        System.err.println("Thread sleep interrupted!");
                         Thread.currentThread().interrupt();
                     }
                 }
@@ -81,31 +96,30 @@ public class UDPClient2 {
             }
         };
 
+        // Task for receiving packets from the server
         Runnable receiverTask = () -> {
             try {
                 while (true) {
                     byte[] incomingData = new byte[4096];
                     DatagramPacket incomingPacket = new DatagramPacket(incomingData, incomingData.length);
-                    socket.receive(incomingPacket);
+                    socket.receive(incomingPacket); // Receive incoming data
 
                     Object receivedObject = deserialize(incomingPacket.getData());
 
+                    // Process received data if it contains a list of packets
                     if (receivedObject instanceof List<?>) {
                         List<?> rawList = (List<?>) receivedObject;
-                    
+
                         if (!rawList.isEmpty() && rawList.get(0) instanceof Packet) {
                             List<Packet> packetList = (List<Packet>) rawList;
-                    
+
                             System.out.println("Received updated node list from server:");
-                            for (Packet pkt : packetList) { 
+                            for (Packet pkt : packetList) {
                                 int id = pkt.getNodeId();
-                                String rawData = pkt.getData();
-                    
-                                // ✅ Extract status from `data` field (split at "|")
-                                String[] parts = rawData.split("\\|", 2);
+                                String[] parts = pkt.getData().split("\\|", 2);
                                 String status = (parts.length > 1) ? parts[0] : "Unknown";
                                 String files = (parts.length > 1) ? parts[1] : "No files";
-                    
+
                                 System.out.println("Node " + id + ": Status = " + status + ", Files = " + files);
                             }
                         } else {
@@ -120,6 +134,7 @@ public class UDPClient2 {
             }
         };
 
+        // Start both sender and receiver tasks
         executor.execute(senderTask);
         executor.execute(receiverTask);
         executor.shutdown();
@@ -128,8 +143,9 @@ public class UDPClient2 {
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
         ConfigLoader configLoader = new ConfigLoader();
-
         int nodeId;
+
+        // Prompt user for a node ID (must be between 1 and 5)
         while (true) {
             System.out.print("Enter a Node ID (1-5): ");
             try {
@@ -144,12 +160,14 @@ public class UDPClient2 {
             }
         }
 
+        // Retrieve node configuration based on user input
         ConfigLoader.NodeInfo nodeInfo = configLoader.getNodes().get(nodeId);
         if (nodeInfo == null) {
             System.err.println("Error: No configuration found for Node " + nodeId);
             return;
         }
 
+        // Create and start the UDP client
         UDPClient2 client = new UDPClient2(nodeId, nodeInfo);
         client.createAndListenSocket(nodeInfo);
     }

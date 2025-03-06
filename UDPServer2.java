@@ -6,24 +6,27 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class UDPServer2 {
-    private DatagramSocket socket;
-    private ExecutorService executor;
-    private ConfigLoader configLoader;
-    private SecureRandom random = new SecureRandom();
-    private Map<Integer, Long> lastReceivedTime = new HashMap<>(); // Track last packet time
+    private DatagramSocket socket; // UDP socket for communication
+    private ExecutorService executor; // Thread pool for managing tasks
+    private ConfigLoader configLoader; // Manages node configurations
+    private SecureRandom random = new SecureRandom(); // For random delays in broadcasting
+    private Map<Integer, Long> lastReceivedTime = new HashMap<>(); // Stores last received time for each node
 
-    private static final int TIMEOUT_MS = 30 * 1000; // 30 seconds timeout
+    private static final int TIMEOUT_MS = 30 * 1000; // Timeout period (30 seconds)
 
     public UDPServer2() {
         try {
-            socket = new DatagramSocket(9876);
-            executor = Executors.newFixedThreadPool(3); // 3 threads: listener, broadcaster, timeout checker
-            configLoader = new ConfigLoader();
+            socket = new DatagramSocket(9876); // Bind server to port 9876
+            executor = Executors.newFixedThreadPool(3); // Use 3 threads: listener, broadcaster, timeout checker
+            configLoader = new ConfigLoader(); // Load node configurations
         } catch (SocketException e) {
             e.printStackTrace();
         }
     }
 
+    /**
+     * Serializes an object into a byte array for transmission.
+     */
     private byte[] serialize(Object obj) throws IOException {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         ObjectOutputStream oos = new ObjectOutputStream(bos);
@@ -32,24 +35,28 @@ public class UDPServer2 {
         return bos.toByteArray();
     }
 
+    /**
+     * Deserializes a byte array back into an object.
+     */
     private Object deserialize(byte[] data) throws IOException, ClassNotFoundException {
         ByteArrayInputStream bis = new ByteArrayInputStream(data);
         ObjectInputStream ois = new ObjectInputStream(bis);
         return ois.readObject();
     }
 
+    /**
+     * Starts the UDP server and handles incoming/outgoing packets.
+     */
     public void createAndListenSocket() {
-        // **Packet Listener Task**
+        // **Packet Listener Task** (Receives data from nodes)
         Runnable listenerTask = () -> {
             try {
                 while (true) {
-                    byte[] buffer = new byte[4096];
+                    byte[] buffer = new byte[4096]; // Buffer for incoming packets
                     DatagramPacket incomingPacket = new DatagramPacket(buffer, buffer.length);
-                    socket.receive(incomingPacket);
+                    socket.receive(incomingPacket); // Wait for a packet from a node
 
-                    // Extract only the valid received bytes
                     byte[] receivedData = Arrays.copyOfRange(incomingPacket.getData(), 0, incomingPacket.getLength());
-
                     Object receivedObject = deserialize(receivedData);
 
                     if (receivedObject instanceof Packet) {
@@ -59,11 +66,11 @@ public class UDPServer2 {
                         int dataSize = packet.getDataLength();
                         String status = (dataSize > 0) ? "Online" : "Offline";
 
-                        // Update ConfigLoader with new node info
+                        // Update node info in ConfigLoader
                         configLoader.setNodeFiles(nodeId, Arrays.asList(files.split(",")));
                         configLoader.setNodeStatus(nodeId, status);
 
-                        // **Update last received time for this node**
+                        // Store last received timestamp for this node
                         lastReceivedTime.put(nodeId, System.currentTimeMillis());
 
                         System.out.println("Updated Node " + nodeId + ": Status = " + status + ", Files = " + files);
@@ -76,25 +83,23 @@ public class UDPServer2 {
             }
         };
 
-        // **Node Timeout Checker Task**
+        // **Node Timeout Checker Task** (Marks nodes Offline if inactive)
         Runnable timeoutCheckerTask = () -> {
             try {
                 while (true) {
                     long currentTime = System.currentTimeMillis();
-                    for (int nodeId = 1; nodeId <= 5; nodeId++) { // Ensure we check ALL nodes 1-5
+                    for (int nodeId = 1; nodeId <= 5; nodeId++) { // Check all nodes 1-5
                         Long lastTime = lastReceivedTime.get(nodeId);
-        
-                        // If node has NEVER sent a packet, assume it's Offline
+
+                        // If node never sent a packet, assume it's Offline
                         if (lastTime == null) {
                             configLoader.setNodeStatus(nodeId, "Offline");
-                            // **for debug** System.out.println("Node " + nodeId + " has never sent a packet. Marking as Offline.");
-                            continue; // Skip further checks
+                            continue;
                         }
-        
-                        // If 30 seconds passed since last packet, mark Offline
+
+                        // If node hasn't sent data in 30 seconds, mark as Offline
                         if (currentTime - lastTime > TIMEOUT_MS) {
                             configLoader.setNodeStatus(nodeId, "Offline");
-                           // **for debug** System.out.println("Node " + nodeId + " has timed out and is now Offline.");
                         }
                     }
                     Thread.sleep(5000); // Check every 5 seconds
@@ -105,34 +110,33 @@ public class UDPServer2 {
             }
         };
 
-        // **Broadcaster Task (Sends Node List to Clients)**
+        // **Broadcaster Task** (Sends node list to clients)
         Runnable broadcasterTask = () -> {
             try {
                 while (true) {
                     Map<Integer, ConfigLoader.NodeInfo> nodes = configLoader.getNodes();
                     List<Packet> packetList = new ArrayList<>();
                     byte version = 1;
-        
-                    for (int nodeId = 1; nodeId <= 5; nodeId++) { 
+
+                    for (int nodeId = 1; nodeId <= 6; nodeId++) { 
                         ConfigLoader.NodeInfo node = nodes.get(nodeId);
                         if (node == null) continue;
-        
-                        // Embed status in the `data` field using a delimiter
+
+                        // Include status and file list in the packet
                         String fileListWithStatus = node.status + "|" + String.join(",", node.files);
                         int dataLength = fileListWithStatus.length();
-        
                         Packet packet = new Packet(version, nodeId, dataLength, fileListWithStatus);
                         packetList.add(packet);
                     }
-        
-                    // Serialize list of packets (now including status inside `data`)
+
+                    // Serialize node list into a packet
                     byte[] data = serialize(packetList);
-        
-                    // Send the updated list to all nodes 1-5
+
+                    // Send updated node list to all nodes 1-5
                     for (int nodeId = 1; nodeId <= 5; nodeId++) {
                         ConfigLoader.NodeInfo node = nodes.get(nodeId);
                         if (node == null) continue;
-        
+
                         try {
                             InetAddress nodeAddress = InetAddress.getByName(node.ip);
                             DatagramPacket sendPacket = new DatagramPacket(data, data.length, nodeAddress, node.port);
@@ -142,8 +146,8 @@ public class UDPServer2 {
                             System.err.println("Failed to send update to Node " + nodeId);
                         }
                     }
-        
-                    // Wait before next broadcast
+
+                    // Randomized delay before next broadcast
                     int delay = 1 + random.nextInt(30);
                     System.out.println("Next broadcast in " + delay + " seconds.");
                     Thread.sleep(delay * 1000);

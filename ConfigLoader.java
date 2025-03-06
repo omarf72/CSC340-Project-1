@@ -71,7 +71,7 @@ public class ConfigLoader {
         NodeInfo node = nodes.get(nodeId);
         if (node != null) {
             node.setStatus(newStatus);
-            System.out.println("Updated Node " + nodeId + " status to " + newStatus);
+           // System.out.println("Updated Node " + nodeId + " status to " + newStatus);
         } else {
             System.err.println("Node ID " + nodeId + " not found.");
         }
