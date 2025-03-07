@@ -1,6 +1,7 @@
 
-// Author: Jacob Levin 3/6/2025
-
+/**
+ *@Author  
+*/
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -34,12 +35,6 @@ public class UDPPeer{
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-
-        //enter the node ID of this computer
-        // System.out.println("Input this node's ID: ");
-        // Scanner scan = new Scanner(System.in);
-        // nodeId = scan.nextInt();
-        // scan.close();
     }
 
     //turn an object into bytes
@@ -137,7 +132,11 @@ public class UDPPeer{
                     
                     //set all node statuses in hashmap to Offline
                     for(int i=1; i <= configLoader.getNodes().size(); i++){
-                        configLoader.setNodeStatus(i, "Offline");
+                        if(i != this.nodeId){
+                            configLoader.setNodeStatus(i, "Offline");
+                        }else{
+                            configLoader.setNodeStatus(i, "Online");
+                        }
                     }
                     Thread.sleep(30000);
                     for(int i=1; i <= configLoader.getNodes().size(); i++){
