@@ -23,10 +23,11 @@ public class UDPPeer{
     private ExecutorService executor;
     private ConfigLoader configLoader = new ConfigLoader();
     private int nodeId; //the node id of the computer this is running on
-    public UDPPeer(){
+    public UDPPeer(int nodeId, ConfigLoader.NodeInfo nodeInfo){
     	try{
+            this.nodeId = nodeId;
     		//create the socket assuming the server is listening on port 9876
-			socket = new DatagramSocket(9876);
+			socket = new DatagramSocket(nodeInfo.port);
             //make a pool of 3 threads
             executor = Executors.newFixedThreadPool(3);
 		} catch (SocketException e) {
@@ -35,10 +36,10 @@ public class UDPPeer{
 		}
 
         //enter the node ID of this computer
-        System.out.println("Input this node's ID: ");
-        Scanner scan = new Scanner(System.in);
-        nodeId = scan.nextInt();
-        scan.close();
+        // System.out.println("Input this node's ID: ");
+        // Scanner scan = new Scanner(System.in);
+        // nodeId = scan.nextInt();
+        // scan.close();
     }
 
     //turn an object into bytes
@@ -156,9 +157,35 @@ public class UDPPeer{
         
     }
 
-    public static void main(String[] args) throws InterruptedException 
-    {
-        UDPPeer server = new UDPPeer();
+    public static void main(String[] args) {
+        Scanner scanner = new Scanner(System.in);
+        ConfigLoader configLoader = new ConfigLoader();
+        int nodeId;
+
+        // Prompt user for a node ID (must be between 1 and 6)
+        while (true) {
+            System.out.print("Enter a Node ID (1-6): ");
+            try {
+                nodeId = Integer.parseInt(scanner.nextLine().trim());
+                if (nodeId >= 1 && nodeId <= 6) {
+                    break;
+                } else {
+                    System.err.println("Invalid Node ID! Please enter a number between 1 and 6.");
+                }
+            } catch (NumberFormatException e) {
+                System.err.println("Invalid input! Please enter a number between 1 and 6.");
+            }
+        }
+
+        // Retrieve node configuration based on user input
+        ConfigLoader.NodeInfo nodeInfo = configLoader.getNodes().get(nodeId);
+        if (nodeInfo == null) {
+            System.err.println("Error: No configuration found for Node " + nodeId);
+            return;
+        }
+
+        // Create and start the UDP client
+        UDPPeer server = new UDPPeer(nodeId, nodeInfo);
         server.createAndListenSocket();
     }
 }
