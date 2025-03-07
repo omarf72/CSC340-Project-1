@@ -1,6 +1,14 @@
-
-// Author Ethan Kulawiak 3/6/2025
-
+/**
+ * UDPServer2 is a UDP-based server that listens for packets from nodes,
+ * updates their statuses, checks for timeouts, and broadcasts node lists
+ * to all clients.
+ * 
+ * <p>It uses multiple threads to handle packet reception, timeout checking,
+ * and broadcasting of node data.</p>
+ * 
+ * @author Ethan Kulawiak
+ * @date 3/6/2025
+ */
 import java.io.*;
 import java.net.*;
 import java.security.SecureRandom;
@@ -17,6 +25,10 @@ public class UDPServer2 {
 
     private static final int TIMEOUT_MS = 30 * 1000; // Timeout period (30 seconds)
 
+    /**
+     * Constructs a UDPServer2 instance, initializing the socket, thread pool,
+     * and configuration loader.
+     */
     public UDPServer2() {
         try {
             socket = new DatagramSocket(9876); // Bind server to port 9876
@@ -29,6 +41,10 @@ public class UDPServer2 {
 
     /**
      * Serializes an object into a byte array for transmission.
+     * 
+     * @param obj the object to serialize
+     * @return the serialized byte array
+     * @throws IOException if an I/O error occurs
      */
     private byte[] serialize(Object obj) throws IOException {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
@@ -40,6 +56,11 @@ public class UDPServer2 {
 
     /**
      * Deserializes a byte array back into an object.
+     * 
+     * @param data the byte array to deserialize
+     * @return the deserialized object
+     * @throws IOException if an I/O error occurs
+     * @throws ClassNotFoundException if the class of the serialized object cannot be found
      */
     private Object deserialize(byte[] data) throws IOException, ClassNotFoundException {
         ByteArrayInputStream bis = new ByteArrayInputStream(data);
@@ -48,7 +69,14 @@ public class UDPServer2 {
     }
 
     /**
-     * Starts the UDP server and handles incoming/outgoing packets.
+     * Starts the UDP server and handles incoming and outgoing packets.
+     * 
+     * <p>This method launches three concurrent tasks:</p>
+     * <ul>
+     * <li>Packet Listener - Receives data from nodes.</li>
+     * <li>Node Timeout Checker - Marks nodes as Offline if inactive.</li>
+     * <li>Broadcaster - Sends node list updates to clients.</li>
+     * </ul>
      */
     public void createAndListenSocket() {
         // **Packet Listener Task** (Receives data from nodes)
@@ -60,7 +88,6 @@ public class UDPServer2 {
                     socket.receive(incomingPacket); // Wait for a packet from a node
 
                     Object receivedObject = deserialize(incomingPacket.getData());
-
 
                     if (receivedObject instanceof Packet) {
                         Packet packet = (Packet) receivedObject;
@@ -100,7 +127,7 @@ public class UDPServer2 {
                             continue;
                         }
 
-                        // If node hasn't sent data in 30 seconds, mark as Offline
+                        // If node hasn't sent data in TIMEOUT_MS, mark as Offline
                         if (currentTime - lastTime > TIMEOUT_MS) {
                             configLoader.setNodeStatus(nodeId, "Offline");
                         }
@@ -125,17 +152,14 @@ public class UDPServer2 {
                         ConfigLoader.NodeInfo node = nodes.get(nodeId);
                         if (node == null) continue;
 
-                        // Include status and file list in the packet
                         String fileListWithStatus = node.status + "|" + String.join(",", node.files);
                         int dataLength = fileListWithStatus.length();
                         Packet packet = new Packet(version, nodeId, dataLength, fileListWithStatus);
                         packetList.add(packet);
                     }
 
-                    // Serialize node list into a packet
                     byte[] data = serialize(packetList);
 
-                    // Send updated node list to all nodes 1-5
                     for (int nodeId = 1; nodeId <= 5; nodeId++) {
                         ConfigLoader.NodeInfo node = nodes.get(nodeId);
                         if (node == null) continue;
@@ -144,27 +168,20 @@ public class UDPServer2 {
                             InetAddress nodeAddress = InetAddress.getByName(node.ip);
                             DatagramPacket sendPacket = new DatagramPacket(data, data.length, nodeAddress, node.port);
                             socket.send(sendPacket);
-                            System.out.println("Sent updated node list to Node " + nodeId + " at " + node.ip + ":" + node.port);
                         } catch (IOException e) {
                             System.err.println("Failed to send update to Node " + nodeId);
                         }
                     }
-
-                    // Randomized delay before next broadcast
-                    int delay = 1 + random.nextInt(30);
-                    System.out.println("Next broadcast in " + delay + " seconds.");
-                    Thread.sleep(delay * 1000);
+                    Thread.sleep((1 + random.nextInt(30)) * 1000);
                 }
             } catch (IOException | InterruptedException e) {
                 e.printStackTrace();
             }
         };
 
-        // Start all tasks
         executor.execute(listenerTask);
         executor.execute(timeoutCheckerTask);
         executor.execute(broadcasterTask);
-
         executor.shutdown();
     }
 

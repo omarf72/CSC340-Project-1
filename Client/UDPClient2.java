@@ -1,16 +1,19 @@
-//package networking;
-
-// Author :Ethan Kulawiak 3/6/2025
-
+/**
+ * UDPClient2 is a UDP-based client that communicates with a UDP server.
+ * 
+ * <p>This client periodically sends its node information to the server and
+ * listens for broadcasts from the server containing updated node statuses.</p>
+ * 
+ * @author Ethan Kulawiak
+ * @date 3/6/2025
+ */
 import java.io.*;
 import java.net.*;
 import java.util.List;
-import java.util.Map;
 import java.util.Scanner;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.security.SecureRandom;
-
 
 public class UDPClient2 {
     private DatagramSocket socket; // UDP socket for communication
@@ -20,7 +23,8 @@ public class UDPClient2 {
     private int serverPort = 9876; // Port used for server communication
 
     /**
-     * Constructor to initialize the UDP client.
+     * Constructs a UDPClient2 instance, initializing the socket and executor.
+     * 
      * @param nodeId The ID of this node.
      * @param nodeInfo Configuration details for this node.
      */
@@ -36,7 +40,11 @@ public class UDPClient2 {
     }
 
     /**
-     * Converts an object into a byte array for sending over UDP.
+     * Serializes an object into a byte array for sending over UDP.
+     * 
+     * @param obj The object to serialize.
+     * @return The serialized byte array.
+     * @throws IOException If an I/O error occurs during serialization.
      */
     private byte[] serialize(Object obj) throws IOException {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
@@ -47,7 +55,12 @@ public class UDPClient2 {
     }
 
     /**
-     * Converts a byte array back into an object.
+     * Deserializes a byte array back into an object.
+     * 
+     * @param data The byte array to deserialize.
+     * @return The deserialized object.
+     * @throws IOException If an I/O error occurs during deserialization.
+     * @throws ClassNotFoundException If the class of the serialized object cannot be found.
      */
     private Object deserialize(byte[] data) throws IOException, ClassNotFoundException {
         ByteArrayInputStream bis = new ByteArrayInputStream(data);
@@ -56,7 +69,15 @@ public class UDPClient2 {
     }
 
     /**
-     * Starts the client, handling both sending and receiving of messages.
+     * Starts the UDP client, handling both sending and receiving of messages.
+     * 
+     * <p>The client performs two concurrent tasks:</p>
+     * <ul>
+     * <li>Sender Task - Sends periodic updates to the server.</li>
+     * <li>Receiver Task - Listens for broadcast updates from the server.</li>
+     * </ul>
+     * 
+     * @param nodeInfo The configuration details for this node.
      */
     public void createAndListenSocket(ConfigLoader.NodeInfo nodeInfo) {
         if (nodeInfo == null) {
@@ -83,15 +104,9 @@ public class UDPClient2 {
                         e.printStackTrace();
                     }
 
-                    // Wait between 1 and 30 seconds before sending again
-                    int delay = 1 + random.nextInt(30);
+                    int delay = 1 + random.nextInt(30); // Wait between 1 and 30 seconds
                     System.out.println("Next send in " + delay + " seconds.");
-
-                    try {
-                        Thread.sleep(delay * 1000);
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                    }
+                    Thread.sleep(delay * 1000);
                 }
             } catch (Exception e) {
                 e.printStackTrace();
@@ -104,24 +119,21 @@ public class UDPClient2 {
                 while (true) {
                     byte[] incomingData = new byte[4096];
                     DatagramPacket incomingPacket = new DatagramPacket(incomingData, incomingData.length);
-                    socket.receive(incomingPacket); // Receive incoming data
+                    socket.receive(incomingPacket);
 
                     Object receivedObject = deserialize(incomingPacket.getData());
 
-                    // Process received data if it contains a list of packets
                     if (receivedObject instanceof List<?>) {
                         List<?> rawList = (List<?>) receivedObject;
 
                         if (!rawList.isEmpty() && rawList.get(0) instanceof Packet) {
                             List<Packet> packetList = (List<Packet>) rawList;
-
                             System.out.println("Received updated node list from server:");
                             for (Packet pkt : packetList) {
                                 int id = pkt.getNodeId();
                                 String[] parts = pkt.getData().split("\\|", 2);
                                 String status = (parts.length > 1) ? parts[0] : "Unknown";
                                 String files = (parts.length > 1) ? parts[1] : "No files";
-
                                 System.out.println("Node " + id + ": Status = " + status + ", Files = " + files);
                             }
                         } else {
@@ -136,7 +148,6 @@ public class UDPClient2 {
             }
         };
 
-        // Start both sender and receiver tasks
         executor.execute(senderTask);
         executor.execute(receiverTask);
         executor.shutdown();
@@ -147,29 +158,24 @@ public class UDPClient2 {
         ConfigLoader configLoader = new ConfigLoader();
         int nodeId;
 
-        // Prompt user for a node ID (must be between 1 and 5)
+        // Prompt user for a node ID
         while (true) {
             System.out.print("Enter a Node ID (1-5): ");
             try {
                 nodeId = Integer.parseInt(scanner.nextLine().trim());
-                if (nodeId >= 1 && nodeId <= 5) {
-                    break;
-                } else {
-                    System.err.println("Invalid Node ID! Please enter a number between 1 and 5.");
-                }
+                if (nodeId >= 1 && nodeId <= 5) break;
+                else System.err.println("Invalid Node ID! Please enter a number between 1 and 5.");
             } catch (NumberFormatException e) {
                 System.err.println("Invalid input! Please enter a number between 1 and 5.");
             }
         }
 
-        // Retrieve node configuration based on user input
         ConfigLoader.NodeInfo nodeInfo = configLoader.getNodes().get(nodeId);
         if (nodeInfo == null) {
             System.err.println("Error: No configuration found for Node " + nodeId);
             return;
         }
 
-        // Create and start the UDP client
         UDPClient2 client = new UDPClient2(nodeId, nodeInfo);
         client.createAndListenSocket(nodeInfo);
     }
