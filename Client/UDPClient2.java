@@ -29,7 +29,7 @@ public class UDPClient2 {
             this.nodeId = nodeId;
             socket = new DatagramSocket(nodeInfo.port); // Bind to the specified port
             executor = Executors.newFixedThreadPool(2); // Use two threads for handling tasks
-            serverAddress = InetAddress.getByName("192.168.56.1"); // Server IP address
+            serverAddress = InetAddress.getByName("10.111.163.55"); // Server IP address
         } catch (SocketException | UnknownHostException e) {
             e.printStackTrace();
         }
