@@ -28,12 +28,19 @@ public class UDPClient2 {
      * @param nodeId The ID of this node.
      * @param nodeInfo Configuration details for this node.
      */
-    public UDPClient2(int nodeId, ConfigLoader.NodeInfo nodeInfo) {
+    public UDPClient2(int nodeId, ConfigLoader configLoader) {
         try {
             this.nodeId = nodeId;
+            ConfigLoader.NodeInfo nodeInfo = configLoader.getNodes().get(nodeId);
+            ConfigLoader.NodeInfo serverNode = configLoader.getNodes().get(6); // Get Node 6 (server)
+    
+            if (nodeInfo == null || serverNode == null) {
+                throw new IllegalArgumentException("Node information not found.");
+            }
+
             socket = new DatagramSocket(nodeInfo.port); // Bind to the specified port
             executor = Executors.newFixedThreadPool(2); // Use two threads for handling tasks
-            serverAddress = InetAddress.getByName("10.111.163.55"); // Server IP address
+            serverAddress = InetAddress.getByName(serverNode.ip); // Server IP address
         } catch (SocketException | UnknownHostException e) {
             e.printStackTrace();
         }
@@ -155,29 +162,23 @@ public class UDPClient2 {
 
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
-        ConfigLoader configLoader = new ConfigLoader();
-        int nodeId;
+    ConfigLoader configLoader = new ConfigLoader();
+    int nodeId;
 
-        // Prompt user for a node ID
-        while (true) {
-            System.out.print("Enter a Node ID (1-5): ");
-            try {
-                nodeId = Integer.parseInt(scanner.nextLine().trim());
-                if (nodeId >= 1 && nodeId <= 5) break;
-                else System.err.println("Invalid Node ID! Please enter a number between 1 and 5.");
-            } catch (NumberFormatException e) {
-                System.err.println("Invalid input! Please enter a number between 1 and 5.");
-            }
+    // Prompt user for a Node ID
+    while (true) {
+        System.out.print("Enter a Node ID (1-5): ");
+        try {
+            nodeId = Integer.parseInt(scanner.nextLine().trim());
+            if (nodeId >= 1 && nodeId <= 5) break;
+            else System.err.println("Invalid Node ID! Please enter a number between 1 and 5.");
+        } catch (NumberFormatException e) {
+            System.err.println("Invalid input! Please enter a number between 1 and 5.");
         }
+    }
 
-        ConfigLoader.NodeInfo nodeInfo = configLoader.getNodes().get(nodeId);
-        if (nodeInfo == null) {
-            System.err.println("Error: No configuration found for Node " + nodeId);
-            return;
-        }
-
-        UDPClient2 client = new UDPClient2(nodeId, nodeInfo);
-        client.createAndListenSocket(nodeInfo);
+    UDPClient2 client = new UDPClient2(nodeId, configLoader);
+    client.createAndListenSocket(configLoader.getNodes().get(nodeId));
     }
 }
 
