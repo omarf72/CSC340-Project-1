@@ -1,6 +1,9 @@
 
 /**
- *@Author  
+ * This class is an implementation of a UDP Peer to Peer network.
+ * 
+ *@author Jacob Levin
+ *@version 1.0
 */
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -24,6 +27,13 @@ public class UDPPeer{
     private ExecutorService executor;
     private ConfigLoader configLoader = new ConfigLoader();
     private int nodeId; //the node id of the computer this is running on
+    /**
+     * This function builds an instance of UDPPeer.
+     * 
+     * @param nodeId This is the node ID the user inputs corresponding to the config file
+     * @param nodeInfo This is the node information from the hash map in ConfigLoader
+     * @throws SocketException if the socket fails to be made
+     */
     public UDPPeer(int nodeId, ConfigLoader.NodeInfo nodeInfo){
     	try{
             this.nodeId = nodeId;
@@ -37,7 +47,13 @@ public class UDPPeer{
 		}
     }
 
-    //turn an object into bytes
+    /**
+     * This function serializes outgoing data.
+     * 
+     * @param obj the object that is to be serialized
+     * @return The object converted into a byte array
+     * @throws IOException when the object fails to serialize
+     */
     private byte[] serialize(Object obj) throws IOException {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         ObjectOutputStream oos = new ObjectOutputStream(bos);
@@ -46,13 +62,29 @@ public class UDPPeer{
         return bos.toByteArray();
     }
 
-    //turn bytes back into an object
+    /**
+     * This function deserializes incoming data.
+     * 
+     * @param data the byte array that is to be turned back into an object
+     * @return The byte array converted back into an object
+     * @throws IOException for any of the usual input/output exceptions
+     * @throws ClassNotFoundException when the class of a serialized object cannot be found
+     */
     private Object deserialize(byte[] data) throws IOException, ClassNotFoundException {
         ByteArrayInputStream bis = new ByteArrayInputStream(data);
         ObjectInputStream ois = new ObjectInputStream(bis);
         return ois.readObject();
     }
 
+    /**
+     * This function creats and runs the threads of the sending, listening and timer functionalities of the peer
+     * 
+     * @throws IOException for any of the usual input/output exceptions
+     * @throws ClassNotFoundException when the class of a serialized object cannot be found
+     * @throws UnknownHostException when the IP address of a host could not be determined
+     * @throws SocketException if the socket fails to be made
+     * @throws InterruptedException if any thread has interrupted the current thread
+     */
     public void createAndListenSocket() {
         //listens for incoming packets
         Runnable listenerTask = () -> {
@@ -156,12 +188,18 @@ public class UDPPeer{
         
     }
 
+    /**
+     * The function that runs first
+     * 
+     * @param args
+     * @throws NumberFormatException for if the user inputs a non-number
+     */
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
         ConfigLoader configLoader = new ConfigLoader();
         int nodeId;
 
-        // Prompt user for a node ID (must be between 1 and 6)
+        //prompts user for a node ID that is between 1 and 6
         while (true) {
             System.out.print("Enter a Node ID (1-6): ");
             try {
