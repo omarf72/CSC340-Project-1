@@ -1,3 +1,5 @@
+//Author: Omar Fofana
+
 import java.io.Serializable;
 
 public class Packet implements Serializable{
