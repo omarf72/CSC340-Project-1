@@ -59,8 +59,8 @@ public class UDPServer2 {
                     DatagramPacket incomingPacket = new DatagramPacket(buffer, buffer.length);
                     socket.receive(incomingPacket); // Wait for a packet from a node
 
-                    byte[] receivedData = Arrays.copyOfRange(incomingPacket.getData(), 0, incomingPacket.getLength());
-                    Object receivedObject = deserialize(receivedData);
+                    Object receivedObject = deserialize(incomingPacket.getData());
+
 
                     if (receivedObject instanceof Packet) {
                         Packet packet = (Packet) receivedObject;
